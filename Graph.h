@@ -16,8 +16,13 @@ class Graph {
         std::string name;
         GraphConnection *connected;
         GraphPoint *next;
+        int num;
+        int connection_count;
+        int *l;
+        GraphPoint *dfs;
+        GraphPoint *from;
 
-        explicit GraphPoint(std::string &name);
+        explicit GraphPoint(std::string name);
     };
 
 
@@ -29,7 +34,24 @@ class Graph {
         GraphConnection(GraphPoint *point, int price);
     };
 
+    struct PointHolder {
+        GraphPoint *point;
+        PointHolder *next;
+        PointHolder *prev;
+
+        explicit PointHolder(GraphPoint *point, PointHolder *prev, PointHolder *next);
+    };
+
     GraphPoint *head;
+
+    PointHolder* getGFromS(PointHolder *S);
+
+    bool contains(GraphPoint *p, PointHolder *holder);
+
+    PointHolder* getT(GraphPoint *p, PointHolder* S);
+
+    PointHolder* getAntiG(GraphPoint *p, int **c, int n);
+
 
 public:
 
@@ -47,8 +69,9 @@ public:
 
     void printConnections();
 
+    void DFS(std::string start);
 
-
+    void FordMyrrBelman(std::string start);
 
 };
 

@@ -3,12 +3,21 @@
 
 int main() {
     Graph g;
-    g.addPoint("x1");
-    g.addPoint("x3");
-    g.addPoint("y");
-    g.addPoint("x1");
-    g.addEdge("x1", "y", 14);
-    g.addEdge("x1", "x3", 20);
+    for (int i = 1; i < 7; i++){
+        g.addPoint(std::to_string(i));
+    }
+    g.addEdge("1", "3", 0);
+    g.addEdge("1", "2", 0);
+    g.addEdge("3", "6", 0);
+    g.addEdge("2", "4", 0);
+    g.addEdge("2", "5", 0);
+    g.addEdge("1", "2", 0);
+    //g.addEdge("5", "6", 0);
+
     g.printConnections();
+
+    g.DFS("4");
+    g.DFS("2");
+
     return 0;
 }
