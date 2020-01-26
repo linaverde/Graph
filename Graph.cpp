@@ -169,12 +169,18 @@ bool Graph::deleteEdge(std::string pName1, std::string pName2) {
 }
 
 void Graph::printPoints() {
-    std::cout << "Graph contains:" << std::endl;
-    GraphPoint *curr = this->head;
-    while (curr != nullptr) {
-        std::cout << curr->name << ' ';
-        curr = curr->next;
+
+    if (head == nullptr) {
+        std::cout << "Graph is empty";
+    } else {
+        std::cout << "Graph contains:" << std::endl;
+        GraphPoint *curr = this->head;
+        while (curr != nullptr) {
+            std::cout << curr->name << ' ';
+            curr = curr->next;
+        }
     }
+
     std::cout << std::endl << "----------" << std::endl;
 }
 
@@ -210,8 +216,10 @@ void Graph::DFS(std::string start) {
             sp = sp->next;
         }
     }
-    if (sp == nullptr)
+    if (sp == nullptr) {
+        std::cout << "There is no " << start << " point in this graph" << std::endl;
         return;
+    }
     std::cout << "DFS: ";
 
     //очищаем метки
@@ -223,7 +231,7 @@ void Graph::DFS(std::string start) {
     }
 
     //Добавляем фиктивную вершину
-    GraphPoint *q = new GraphPoint("Q0");
+    GraphPoint *q = new GraphPoint("TEMPORARY POINT");
     q->from = nullptr;
     q->dfs = sp;
     q->connected = new GraphConnection(sp, 0);
@@ -240,9 +248,20 @@ void Graph::DFS(std::string start) {
         if (curr->dfs == nullptr) { //если текущая вершина не помечена, выписываем её в обход и переходим в нее
             std::cout << curr->name << ", ";
             if (curr->connected != nullptr) {
-                curr->dfs = curr->connected->point;
-                curr->dfs->from = curr;
-                curr = curr->dfs;
+                GraphConnection *con = curr->connected;
+                while (con != nullptr) { //проверяем, чтобы вершина, куда мы переходим, тоже была непомеченной
+                    if (con->point->dfs == nullptr) {
+                        break;
+                    }
+                    con = con->next;
+                }
+                if (con == nullptr) {
+                    curr->dfs = curr;
+                } else {
+                    curr->dfs = con->point;
+                    curr->dfs->from = curr;
+                    curr = curr->dfs;
+                }
             } else {
                 curr->dfs = curr;
                 //curr->from = curr;
@@ -255,9 +274,20 @@ void Graph::DFS(std::string start) {
             }
             next = next->next;
             if (next != nullptr) { //если есть, на что поменять из пометку
-                curr->dfs = next->point;
-                curr->dfs->from = curr;
-                curr = curr->dfs;
+                GraphConnection *con = next;
+                while (con != nullptr) { //проверяем, чтобы вершина, куда мы переходим, тоже была непомеченной
+                    if (con->point->dfs == nullptr) {
+                        break;
+                    }
+                    con = con->next;
+                }
+                if (con != nullptr) {
+                    curr->dfs = con->point;
+                    curr->dfs->from = curr;
+                    curr = curr->dfs;
+                } else {
+                    curr->dfs = curr;
+                }
             }
             //если связи кончились, то на след итерации снова поднимемся на уровень выше
         }
@@ -286,8 +316,11 @@ void Graph::FordMyrrBelman(std::string start) {
             sp = sp->next;
         }
     }
-    if (sp == nullptr) //если её нет, алгоритм не рабочий
+    if (sp == nullptr) {
+        std::cout << "There is no " << start << " point in this graph" << std::endl;
         return;
+    }
+
 
     //нумеруем вершины
     int n = 0;
@@ -341,7 +374,7 @@ void Graph::FordMyrrBelman(std::string start) {
         }
     }
 
-    printMatrix(n, c, points);
+    //printMatrix(n, c, points);
     printMarks(0);
 
     //формируем начальное множество S
@@ -379,7 +412,7 @@ void Graph::FordMyrrBelman(std::string start) {
     bool isEnd = false;
 
     do {
-        std::cout << "Iteration " << k+1 << std::endl;
+        std::cout << "Iteration " << k + 1 << std::endl;
         //обновление меток
         PointHolder *GS = getG(S, n, c, points);
         std::cout << "S: ";
@@ -418,16 +451,16 @@ void Graph::FordMyrrBelman(std::string start) {
 
         //для всех вершин, которые не содержатся в GS, копируем метки с прошлого шага
         GraphPoint *p = head;
-        while (p != nullptr){
-            if (!contains(p, GS)){
-                p->l[k+1] = p->l[k];
+        while (p != nullptr) {
+            if (!contains(p, GS)) {
+                p->l[k + 1] = p->l[k];
             }
             p = p->next;
         }
 
         std::cout << std::endl << std::endl;
 
-        printMarks(k+1);
+        printMarks(k + 1);
 
         //проверка на окончание
         bool allMarksEquals = true;
@@ -445,7 +478,11 @@ void Graph::FordMyrrBelman(std::string start) {
             std::cout << "Answer is found: " << std::endl;
             check = head;
             while (check != nullptr) {
-                std::cout << check->name << ": " << check->l[k] << std::endl;
+                if (check->l[k] != infinity) {
+                    std::cout << check->name << ": " << check->l[k] << std::endl;
+                } else {
+                    std::cout << check->name << ": " << "inf" << std::endl;
+                }
                 check = check->next;
             }
         } else if (k < n - 1 && !allMarksEquals) {
@@ -475,7 +512,7 @@ void Graph::FordMyrrBelman(std::string start) {
                 }
                 check = check->next;
             }
-            if (sS->prev == nullptr){
+            if (sS->prev == nullptr) {
                 delete sS;
                 S = nullptr;
             } else {
@@ -490,7 +527,7 @@ void Graph::FordMyrrBelman(std::string start) {
 
     //после окончания алгоритма освобождаем ресурсы (метки)
     curr = head;
-    while (curr != nullptr){
+    while (curr != nullptr) {
         delete curr->l;
         curr = curr->next;
     }
