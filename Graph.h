@@ -44,13 +44,16 @@ class Graph {
 
     GraphPoint *head;
 
-    PointHolder* getGFromS(PointHolder *S);
-
     bool contains(GraphPoint *p, PointHolder *holder);
 
-    PointHolder* getT(GraphPoint *p, PointHolder* S);
+    void printPointHolder (PointHolder *holder);
 
-    PointHolder* getAntiG(GraphPoint *p, int **c, int n);
+    void printMatrix (int n, int** c, GraphPoint** points);
+
+    void printMarks (int k);
+
+    PointHolder* getT(GraphPoint *p, PointHolder* S, int n, int** c, GraphPoint **points);
+    PointHolder* getG(PointHolder* S, int n, int** c, GraphPoint **points);
 
 
 public:

@@ -5,9 +5,9 @@
 #include "Graph.h"
 #include <iostream>
 #include <limits>
-#include <cmath>
 
-#define infinity std::numeric_limits<int>::max();
+
+#define infinity std::numeric_limits<int>::max()
 
 Graph::GraphPoint::GraphPoint(std::string name) {
     this->name = name;
@@ -202,11 +202,6 @@ void Graph::printConnections() {
 
 void Graph::DFS(std::string start) {
 
-    ///НД - это следующая за текущей вершина!
-    ///При перестроении меняется
-    ///Если выписывать проход сразу - фиктивную можно не вводить
-    ///для моей структуры массивы не нужны
-    ///даже число вершин в связях хранить не обязательно, просто брать следующую за текущей по списку
     GraphPoint *sp = head;
     while (sp != nullptr) {
         if (sp->name == start) {
@@ -303,7 +298,7 @@ void Graph::FordMyrrBelman(std::string start) {
         curr = curr->next;
     }
 
-    GraphPoint *points[n]; //создаем массив вершин для быстрого доступа по номеру
+    GraphPoint **points = new GraphPoint *[n]; //создаем массив вершин для быстрого доступа по номеру
 
     curr = head;
     while (curr != nullptr) {
@@ -323,38 +318,53 @@ void Graph::FordMyrrBelman(std::string start) {
         }
     }
 
-    //curr = head;
+    curr = head;
 
-    //while (curr != nullptr){
+    //заполняем матрицу весов нормальными значениями
     for (int i = 0; i < n; i++) {
         GraphConnection *con = points[i]->connected;
         while (con != nullptr) {
-            c[curr->num][con->point->num] = con->price;
+            c[i][con->point->num] = con->price;
             con = con->next;
         }
         //создаем для каждой вершины массив меток из н+1
         points[i]->l = new int[n + 1];
         //заполняем метки бесконечностью
-        for (int j = 0; j < n + 1; j++) {
-            points[i]->l[j] = infinity;
+        if (points[i] != sp) {
+            for (int j = 0; j < n + 1; j++) {
+                points[i]->l[j] = infinity;
+            }
+        } else {
+            for (int j = 0; j < n + 1; j++) {
+                points[i]->l[j] = 0;
+            }
         }
     }
+
+    printMatrix(n, c, points);
+    printMarks(0);
 
     //формируем начальное множество S
     auto *S = new PointHolder(nullptr, nullptr, nullptr);
     PointHolder *currHolder = S;
-    GraphConnection *con = sp->connected;
-    while (con != nullptr) {
-        currHolder->point = con->point;
-        currHolder = new PointHolder(nullptr, currHolder, nullptr);
-        currHolder = currHolder->next;
-        con = con->next;
+    for (int i = 0; i < n; i++) {
+        if (c[sp->num][i] < infinity) {
+            currHolder->point = points[i];
+            currHolder->next = new PointHolder(nullptr, currHolder, nullptr);
+            currHolder = currHolder->next;
+        }
     }
+    if (currHolder->prev == nullptr) {
+        std::cout << "Start point is not connected with anything" << std::endl;
+        return;
+    }
+
     currHolder = currHolder->prev;
-    delete (currHolder->next);
+    delete currHolder->next;
     currHolder->next = nullptr;
 
-    int k = 0;
+    //std::cout << "Start S: ";
+    //printPointHolder(S);
 
     //изменяем метки для всех вершин, достижимых из sp
     sp->l[0] = 0;
@@ -364,22 +374,170 @@ void Graph::FordMyrrBelman(std::string start) {
         currHolder = currHolder->next;
     }
 
-    //обновление меток
+    int k = 0;
 
-    //строим Г(S)
-    PointHolder *G = getGFromS(S);
+    bool isEnd = false;
 
-    //изменяем метки
-    for (int i = 0; i < n; i++) {
-        if (contains(points[i], G)) { //если содержится, то изменяем метку
-            //строим Ti
+    do {
+        std::cout << "Iteration " << k+1 << std::endl;
+        //обновление меток
+        PointHolder *GS = getG(S, n, c, points);
+        std::cout << "S: ";
+        printPointHolder(S);
+        //std::cout << std::endl;
+        std::cout << "G(S): ";
+        printPointHolder(GS);
+        currHolder = GS;
+        while (currHolder != nullptr) {
+            if (currHolder->point != sp) {
+                PointHolder *T = getT(currHolder->point, S, n, c, points);
+                std::cout << "T for " << currHolder->point->name << ": ";
+                printPointHolder(T);
 
-        } else { //иначе копируем предыдущую
-            points[i]->l[k + 1] = points[i]->l[k];
+                int cl = currHolder->point->l[k]; //текущая метка рассматриваемой вершины
+                int cn; //храним новую метку для сравнения
+                PointHolder *h = T;
+                cn = infinity;
+                while (h != nullptr) { //выбираем минимальную метку из множества Ti
+                    int temp;
+                    if (c[h->point->num][currHolder->point->num] == infinity || h->point->l[k] == infinity) {
+                        temp = infinity;
+                    } else {
+                        temp = h->point->l[k] + c[h->point->num][currHolder->point->num];
+                    }
+                    cn = std::min(temp, cn);
+                    h = h->next;
+                }
+                cl = std::min(cl, cn);
+                currHolder->point->l[k + 1] = cl;
+                currHolder = currHolder->next;
+            } else {
+                currHolder = currHolder->next;
+            }
         }
+
+        //для всех вершин, которые не содержатся в GS, копируем метки с прошлого шага
+        GraphPoint *p = head;
+        while (p != nullptr){
+            if (!contains(p, GS)){
+                p->l[k+1] = p->l[k];
+            }
+            p = p->next;
+        }
+
+        std::cout << std::endl << std::endl;
+
+        printMarks(k+1);
+
+        //проверка на окончание
+        bool allMarksEquals = true;
+        GraphPoint *check = head;
+        while (check != nullptr) {
+            if (check->l[k + 1] != check->l[k]) {
+                allMarksEquals = false;
+                break;
+            }
+            check = check->next;
+        }
+
+        if (k <= n - 1 && allMarksEquals) {
+            isEnd = true;
+            std::cout << "Answer is found: " << std::endl;
+            check = head;
+            while (check != nullptr) {
+                std::cout << check->name << ": " << check->l[k] << std::endl;
+                check = check->next;
+            }
+        } else if (k < n - 1 && !allMarksEquals) {
+            isEnd = false;
+        } else if (k == n - 1 && !allMarksEquals) {
+            std::cout << "There is negative cycle in the graph" << std::endl;
+            isEnd = true;
+        }
+
+        if (!isEnd) {//подготовка к след итерации
+            //очищаем множество S
+            PointHolder *sS = S;
+            while (sS->next != nullptr) {
+                sS = sS->next;
+                delete sS->prev;
+            }
+            delete sS;
+            //delete S;
+            S = new PointHolder(nullptr, nullptr, nullptr);
+            sS = S;
+            check = head;
+            while (check != nullptr) {
+                if (check->l[k + 1] != check->l[k]) {
+                    sS->point = check;
+                    sS->next = new PointHolder(nullptr, sS, nullptr);
+                    sS = sS->next;
+                }
+                check = check->next;
+            }
+            if (sS->prev == nullptr){
+                delete sS;
+                S = nullptr;
+            } else {
+                sS = sS->prev;
+                delete sS->next;
+                sS->next = nullptr;
+            }
+        }
+        std::cout << std::endl;
+        k++;
+    } while (!isEnd);
+
+    //после окончания алгоритма освобождаем ресурсы (метки)
+    curr = head;
+    while (curr != nullptr){
+        delete curr->l;
+        curr = curr->next;
     }
 
+}
 
+Graph::PointHolder *Graph::getG(PointHolder *S, int n, int **c, GraphPoint **points) {
+    PointHolder *holder = new PointHolder(nullptr, nullptr, nullptr);
+    PointHolder *currS = S;
+    PointHolder *curr = holder;
+    while (currS != nullptr) {
+        for (int i = 0; i < n; i++) {
+            if (c[currS->point->num][i] != infinity && !contains(points[i], holder)) {
+                curr->point = points[i];
+                curr->next = new PointHolder(nullptr, curr, nullptr);
+                curr = curr->next;
+            }
+        }
+        currS = currS->next;
+    }
+    if (curr->prev == nullptr)
+        return nullptr;
+    curr = curr->prev;
+    delete curr->next;
+    curr->next = nullptr;
+    return holder;
+}
+
+Graph::PointHolder *Graph::getT(Graph::GraphPoint *p, Graph::PointHolder *S, int n, int **c, GraphPoint **points) {
+    PointHolder *holder = new PointHolder(nullptr, nullptr, nullptr);
+    PointHolder *curr = holder;
+    for (int i = 0; i < n; i++) {
+        if (c[i][p->num] != infinity) {
+            GraphPoint *p1 = points[i];
+            if (contains(p1, S)) {
+                curr->point = p1;
+                curr->next = new PointHolder(nullptr, curr, nullptr);
+                curr = curr->next;
+            }
+        }
+    }
+    if (curr->prev == nullptr)
+        return nullptr;
+    curr = curr->prev;
+    delete curr->next;
+    curr->next = nullptr;
+    return holder;
 }
 
 bool Graph::contains(GraphPoint *p, PointHolder *holder) {
@@ -394,24 +552,52 @@ bool Graph::contains(GraphPoint *p, PointHolder *holder) {
     return false;
 }
 
-
-Graph::PointHolder *Graph::getGFromS(PointHolder *S) {
-    PointHolder *newHolder = new PointHolder(nullptr, nullptr, nullptr);
-    PointHolder *currHolder = newHolder;
-    PointHolder *currS = S;
-    while (currS != nullptr) {
-        GraphConnection *con = currS->point->connected;
-        while (con != nullptr) {
-            currHolder->point = con->point;
-            currHolder->next = new PointHolder(nullptr, currHolder, nullptr);
-            currHolder = currHolder->next;
-            con = con->next;
-        }
-        currS = currS->next;
+void Graph::printPointHolder(Graph::PointHolder *holder) {
+    PointHolder *curr = holder;
+    while (curr != nullptr) {
+        std::cout << curr->point->name << ", ";
+        curr = curr->next;
     }
-    currHolder = currHolder->prev;
-    delete (currHolder->next);
-    currHolder->next = nullptr;
-
-    return newHolder;
+    std::cout << "end" << std::endl;
 }
+
+void Graph::printMatrix(int n, int **c, GraphPoint **points) {
+    std::cout << "Weight matrix" << std::endl;
+    for (int i = 0; i < n; i++) {
+        std::cout << points[i]->name << " ";
+    }
+    std::cout << std::endl;
+    for (int i = 0; i < n; i++) {
+        std::cout << points[i]->name << " ";
+        for (int j = 0; j < n; j++) {
+            if (c[i][j] != infinity) {
+                std::cout << c[i][j] << " ";
+            } else {
+                std::cout << "inf" << " ";
+            }
+        }
+        std::cout << std::endl;
+    }
+    std::cout << std::endl << std::endl;
+}
+
+void Graph::printMarks(int k) {
+    GraphPoint *curr = head;
+    std::cout << "Marks: " << "k = " << k << std::endl;
+    while (curr != nullptr) {
+        std::cout << curr->name << ": ";
+        for (int i = 0; i < k + 1; i++) {
+            if (curr->l[i] != infinity) {
+                std::cout << curr->l[i] << " ";
+            } else {
+                std::cout << "inf" << " ";
+            }
+        }
+        std::cout << std::endl;
+        curr = curr->next;
+    }
+    std::cout << std::endl;
+}
+
+
+
